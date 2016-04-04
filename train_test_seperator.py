@@ -31,6 +31,9 @@ for s in tmp_data:
     s = s[0]
     label_content.append(int(s))
 
+data_file.close()
+label_file.close()
+
 Num_Of_train = int(len(label_content) * train_rate)
 Num_Of_validate = int(len(label_content) * validate_rate)
 Num_Of_test = len(label_content) - (Num_Of_train + Num_Of_validate)
