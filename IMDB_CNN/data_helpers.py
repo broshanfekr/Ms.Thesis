@@ -34,7 +34,7 @@ def Load_IMDB_Data_and_Label(is_remove_stopwords = False):
     dataset_file_name = "total.tar"
     tar = tarfile.open(dataset_file_name)
     for member in tar.getmembers():
-        file_name = member.name.split("_")
+        file_name = member.name.split("-")
         isTrain = file_name[0]
         data_label = file_name[-1].split(".")[0]
         f = tar.extractfile(member)
