@@ -1,0 +1,2 @@
+IMDB_Doc2Vec.py and concatinated_Doc2vec.py are seperated implementations for Doc2vec model.
+to run these codes the data shuld placed in the same directory with these files and then run each of them.
