@@ -35,7 +35,7 @@ destfile = open("Sentiment_result", "w")
 def Load_Data(is_remove_stopwords):
     tar = tarfile.open(dataset_file_name)
     for member in tar.getmembers():
-        file_name = member.name.split("_")
+        file_name = member.name.split("-")
         isTrain = file_name[0]
         data_label = file_name[-1].split(".")[0]
         f = tar.extractfile(member)
