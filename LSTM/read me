@@ -1,0 +1,3 @@
+after placing data file (total.rar) and doc2vec model () in the same directory with LSTM.py and data_helpers.py run LSTM.py.
+
+if there is no doc2vec model first run doc2vec.py and then run LSTM.py
