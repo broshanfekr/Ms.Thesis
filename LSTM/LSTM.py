@@ -14,7 +14,6 @@ x, y, seq_length = data_helpers.load_data()
 x_train, x_dev = x[:-25000], x[-25000:]
 y_train, y_dev = y[:-25000], y[-25000:]
 
-print("bero sucssecc")
 print("Train/Dev split: {:d}/{:d}".format(len(y_train), len(y_dev)))
 ###################################################################################################
 
