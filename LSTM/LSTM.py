@@ -26,10 +26,10 @@ display_step = 100
 Num_of_epochs = 10
 
 # Network Parameters
-n_input = 150 # MNIST data input (img shape: 28*28)
-n_steps = seq_length # timesteps
+n_input = 150 # embedding dimension
+n_steps = seq_length # number of words in a sentence
 n_hidden = 300 # hidden layer num of features
-n_classes = 2 # MNIST total classes (0-9 digits)
+n_classes = 2 # total number of classes
 
 # tf Graph input
 x = tf.placeholder("float", [None, n_steps, n_input])
@@ -46,7 +46,7 @@ biases = {
     'out': tf.Variable(tf.random_normal([n_classes]))
 }
 
-# Checkpoint directory. Tensorflow assumes this directory already exists so we need to create it
+
 out_dir = os.path.abspath(os.path.join(os.path.curdir, "runs"))
 checkpoint_dir = os.path.abspath(os.path.join(out_dir, "checkpoints"))
 checkpoint_prefix = os.path.join(checkpoint_dir, "model")
@@ -56,31 +56,23 @@ saver = tf.train.Saver(tf.all_variables())
 
 def RNN(_X, _istate, _weights, _biases):
 
-    # input shape: (batch_size, n_steps, n_input)
-    _X = tf.transpose(_X, [1, 0, 2])  # permute n_steps and batch_size
+    _X = tf.transpose(_X, [1, 0, 2]) 
     # Reshape to prepare input to hidden activation
-    _X = tf.reshape(_X, [-1, n_input]) # (n_steps*batch_size, n_input)
+    _X = tf.reshape(_X, [-1, n_input])
     # Linear activation
     _X = tf.matmul(_X, _weights['hidden']) + _biases['hidden']
 
     # Define a lstm cell with tensorflow
     lstm_cell = rnn_cell.BasicLSTMCell(n_hidden, forget_bias=1.0)
-    # Split data because rnn cell needs a list of inputs for the RNN inner loop
-    _X = tf.split(0, n_steps, _X) # n_steps * (batch_size, n_hidden)
+    _X = tf.split(0, n_steps, _X) 
 
-    #suse=lstm_cell.state_size
-    # Get lstm cell output
     outputs, states = rnn.rnn(lstm_cell, _X, initial_state=_istate)
 
     # Linear activation
-    # Get inner loop last output
     return tf.matmul(outputs[-1], _weights['out']) + _biases['out']
 
 
 def dev_step(x_batch, y_batch, writer=None):
-    """
-    Evaluates model on a dev set
-    """
     dev_baches = data_helpers.dev_batch_iter(
         list(zip(x_batch, y_batch)), batch_size=batch_size, seq_length=seq_length,
         emmbedding_size=n_input)
@@ -142,7 +134,6 @@ with tf.Session() as sess:
     print("after with")
     sess.run(init)
     step = 1
-    # Keep training until reach max iterations
     for epoch in range(Num_of_epochs):
         path = saver.save(sess, checkpoint_prefix)
         print("Saved model checkpoint to {}\n".format(path))
@@ -176,8 +167,3 @@ with tf.Session() as sess:
     print("\nEvaluation:")
     dev_step(x_dev, y_dev)
     print("")
-
-
-    #test_label = mnist.test.labels[:test_len]
-    #print("Testing Accuracy:", sess.run(accuracy, feed_dict={x: test_data, y: test_label,
-     #                                                        istate: np.zeros((test_len, 2*n_hidden))}))
