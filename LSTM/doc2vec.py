@@ -194,11 +194,11 @@ for epoch in range(passes):
 
 print("END %s" % str(datetime.datetime.now()))
 
-simple_models[0].save('./myfolder/simple_model0')
+simple_models[0].save('./simple_model0')
 #simple_models[1].save('./simple_model1')
 
 
 ###############################################################################################
 # print best error rates achieved
 for rate, name in sorted((rate, name) for name, rate in best_error.items()):
-    print("%f %s" % (rate, name)) 
+    print("%f %s" % (rate, name))
