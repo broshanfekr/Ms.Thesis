@@ -197,26 +197,3 @@ def batch_iter(data, batch_size, seq_length, emmbedding_size, shuffle=True):
                 x_bar = np.zeros([num_padding, emmbedding_size])
                 x[0] = np.concatenate([x[0], x_bar], axis=0)
         yield tmp_data
-
-def dev_batch_iter(data , batch_size, seq_length, emmbedding_size, shuffle = False):
-
-    data = np.array(data)
-    data_size = len(data)
-    num_batches_per_epoch = int(len(data) / batch_size) + 1
-    print("processing evaluatin data...")
-    # Shuffle the data at each epoch
-    if shuffle:
-        shuffle_indices = np.random.permutation(np.arange(data_size))
-        shuffled_data = data[shuffle_indices]
-    else:
-        shuffled_data = data
-    for batch_num in range(num_batches_per_epoch):
-        start_index = batch_num * batch_size
-        end_index = min((batch_num + 1) * batch_size, data_size)
-        tmp_data = copy.deepcopy(shuffled_data[start_index:end_index])
-        for x in tmp_data:
-            if (len(x[0]) < seq_length):
-                num_padding = seq_length - len(x[0])
-                x_bar = np.zeros([num_padding, emmbedding_size])
-                x[0] = np.concatenate([x[0], x_bar], axis=0)
-        yield tmp_data
