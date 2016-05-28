@@ -23,7 +23,7 @@ learning_rate = 0.001
 training_iters = 100000
 batch_size = 100
 display_step = 100
-Num_of_epochs = 10
+Num_of_epochs = 20
 
 # Network Parameters
 n_input = 150 # embedding dimension
@@ -97,19 +97,19 @@ def dev_step(x_batch, y_batch, writer=None):
         loss = sess.run(cost, feed_dict={x: batch_xs, y: batch_ys,
                                          istate: np.zeros((batch_size, 2 * n_hidden))})
         print("index is: ", index)
-        print(", Minibatch Loss= " + "{:.6f}".format(loss) + ", testing Accuracy= " + "{:.5f}".format(acc))
+        print(" Minibatch Loss= " + "{:.6f}".format(loss) + ", testing Accuracy= " + "{:.5f}".format(acc))
 
-        correct_predict = sess.run(prediction, feed_dict={x: batch_xs, y: batch_ys,
-                                                            istate: np.zeros((batch_size, 2 * n_hidden))})
-        s=""
-        for i in correct_predict:
-            s = s + str(i) + " "
-        print(s)
-        destfile.write(s)
+        #correct_predict = sess.run(prediction, feed_dict={x: batch_xs, y: batch_ys,
+        #                                                    istate: np.zeros((batch_size, 2 * n_hidden))})
+        #s=""
+        #for i in correct_predict:
+        #    s = s + str(i) + " "
+        #print(s)
+        #destfile.write(s)
         correct_predict = sess.run(correct_pred, feed_dict={x: batch_xs, y: batch_ys,
                                                             istate: np.zeros((batch_size, 2 * n_hidden))})
         total_loss += loss
-        total_acc += accuracy
+        total_acc += acc
         index += 1
         total_correct_predictions += np.sum(correct_predict)
 
@@ -117,15 +117,17 @@ def dev_step(x_batch, y_batch, writer=None):
     avg_loss = total_loss / index
     avg_acc = total_acc / index
     real_acc = (total_correct_predictions * 1.0) / (total_dev_data)
-    print("avarage_Loss: ", avg_loss, "\navarage_acc: ", avg_acc, "\nreal_acc: ", real_acc, "\n\n")
+    print("avarage_Loss: ", avg_loss, "    avarage_acc: ", avg_acc, "   real_acc: ", real_acc, "\n\n")
 
 
 print("before pred")
 pred = RNN(x, istate, weights, biases)
+l2_loss = tf.nn.l2_loss(weights['hidden']) + tf.nn.l2_loss(weights['out'])\
+          + tf.nn.l2_loss(biases['hidden']) + tf.nn.l2_loss(biases['out'])
 print("after pred")
 
 # Define loss and optimizer
-cost = tf.reduce_mean(tf.nn.softmax_cross_entropy_with_logits(pred, y)) # Softmax loss
+cost = tf.reduce_mean(tf.nn.softmax_cross_entropy_with_logits(pred, y)) + l2_loss # Softmax loss
 print("after cost")
 optimizer = tf.train.AdamOptimizer(learning_rate=learning_rate).minimize(cost) # Adam Optimizer
 print("after optimizer")
@@ -177,10 +179,10 @@ with tf.Session() as sess:
                                                                 istate: np.zeros((batch_size, 2 * n_hidden))})
             sum_of_1label = np.sum(correct_predict)
 
-            print(", Minibatch Loss= " + "{:.6f}".format(loss) + ", Training Accuracy= " + "{:.5f}".format(acc))
+            print(" Minibatch Loss= " + "{:.6f}".format(loss) + ", Training Accuracy= " + "{:.5f}".format(acc))
             print("sum of 1 label: " , sum_of_1label)
 
-        if((epoch+1) % 2 == 0):
+        if((epoch+1) % 5 == 0):
             dev_step(x_dev, y_dev)
 
     print("Optimization Finished!")
