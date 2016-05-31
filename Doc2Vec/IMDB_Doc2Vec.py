@@ -1,38 +1,26 @@
-from gensim.models.doc2vec import TaggedDocument
-from gensim import utils
-from gensim.models import Doc2Vec
-from nltk.corpus import stopwords
-from sklearn.linear_model import LogisticRegression
-from sknn.mlp import Classifier, Layer
-import numpy as np
-from bs4 import BeautifulSoup
-from nltk.tokenize import word_tokenize
-from nltk.tokenize import wordpunct_tokenize
-import re
-import sys
+import gensim
 import tarfile
-import random
-import copy
-import logging, sys, pprint
-import timeit
+from gensim.models.doc2vec import TaggedDocument
+from collections import namedtuple
+from sklearn.linear_model import LogisticRegression
+from bs4 import BeautifulSoup
+#from nltk.tokenize import wordpunct_tokenize
+
+import logging, sys
 
 logging.basicConfig(stream=sys.stdout, level=logging.INFO)
 logger = logging.getLogger(__name__)
-################## define variables-----------------------------------------------
-num_Of_epoch = 25
-is_remove_stopwords = False
-sentences = []  # Initialize an empty list of sentences
-mylabel = []    # labels for train sentences
-test_sentences = []
-test_labels = []
-pos_label = 1
-neg_label = 0
-unsup_label = -1
+
+SentimentDocument = namedtuple('SentimentDocument', 'words tags split sentiment')
 dataset_file_name = "total.tar"
-destfile = open("Sentiment_result", "w")
-#_________________________________________________________________________________
-################## define functions-----------------------------------------------
-def Load_Data(is_remove_stopwords):
+alldocs = []  # will hold all docs in original order
+
+def Load_Data():
+    train_pos = []
+    train_neg = []
+    train_unsup = []
+    test_pos = []
+    test_neg = []
     tar = tarfile.open(dataset_file_name)
     for member in tar.getmembers():
         file_name = member.name.split("-")
@@ -43,210 +31,168 @@ def Load_Data(is_remove_stopwords):
         f.close()
         if(isTrain == "train"):
             if(data_label == "pos"):
-                Read_From_File(content, pos_label, sentences, mylabel, is_remove_stopwords)
-                logging.info('posetive data parsed from training set')
+                train_pos = content
+                print('posetive data parsed from training set')
             elif(data_label == "neg"):
-                Read_From_File(content, neg_label, sentences, mylabel, is_remove_stopwords)
-                logging.info("negative data parsed from training set")
+                train_neg = content
+                print("negative data parsed from training set")
             else:
-                Read_From_File(content, unsup_label, sentences, mylabel, is_remove_stopwords)
-                logging.info("unsup data parsed from training set")
+                train_unsup = content
+                print("unsup data parsed from training set")
         elif(isTrain == "test"):
             if(data_label == "pos"):
-                Read_From_File(content, pos_label, test_sentences, test_labels, is_remove_stopwords)
-                logging.info("posetive sentences parsed from testing set")
+                test_pos = content
+                print("posetive sentences parsed from testing set")
             elif(data_label == "neg"):
-                Read_From_File(content, neg_label, test_sentences, test_labels, is_remove_stopwords)
-                logging.info("negative sentences parsed from testing set")
+                test_neg = content
+                print("negative sentences parsed from testing set")
+    alldocs = train_pos + train_neg + test_pos + test_neg + train_unsup
     tar.close()
+    return alldocs
 
-def Read_From_File(data, label, sentences, mylabel, is_remove_stopwords):
-    Num_Of_Samples = len(data)
-    offset = len(sentences)
-    for i in range(Num_Of_Samples):#train["review"]:
-        #print(i)
-        review = data[i]
-        mylabel.append(label)
-        sentences.append(Review2Doc(review = review, mytag=i+offset, remove_stopwords=is_remove_stopwords))
+sentences = Load_Data()
 
-def Review2Doc(review, mytag, remove_stopwords=False):
-    review_text = review
-    review_text = BeautifulSoup(review_text, "lxml").get_text() #Remove HTML tags
-    #words = word_tokenize(review_text)
-    words = wordpunct_tokenize(review_text)
+for line_no, line in enumerate(sentences):
+    s = sentences[line_no]
+    words = gensim.utils.to_unicode(s).split()
+    #s = BeautifulSoup(s, "lxml").get_text()  # Remove HTML tags
+    #s = s.lower()
+    #words = wordpunct_tokenize(s)
+    #tokens = gensim.utils.to_unicode(line).split()
+    #words1 = tokens[1:]
+    tags = [line_no] # `tags = [tokens[0]]` would also work at extra memory cost
+    split = ['train','test','extra','extra'][line_no//25000]  # 25k train, 25k test, 25k extra
+    sentiment = [1.0, 0.0, 1.0, 0.0, None, None, None, None][line_no//12500] # [12.5K pos, 12.5K neg]*2 then unknown
+    alldocs.append(SentimentDocument(words, tags, split, sentiment))
 
-    #review_text = re.sub("[^a-zA-Z]", " ", review_text)  # Remove non-letters from words
-    #words = review_text.lower().split()  # Convert words to lower case and split them
-    for i in range(len(words)):
-        words[i] = words[i].lower()
-        words[i] = unicode(words[i])
-    # remove stop words
-    if remove_stopwords:
-        stops = set(stopwords.words("english"))
-        words = [w for w in words if not w in stops]
+train_docs = [doc for doc in alldocs if doc.split == 'train']
+test_docs = [doc for doc in alldocs if doc.split == 'test']
+train_plus_extra = [doc for doc in alldocs if(doc.split == 'train' or doc.split == 'extra')]
+doc_list = train_plus_extra[:]  # for reshuffling per pass
 
-    labeledSent = TaggedDocument(words=words, tags=[mytag])
-    return labeledSent
+print('%d docs: %d train-sentiment, %d test-sentiment' % (len(doc_list), len(train_docs), len(test_docs)))
 
-def Train_Model(Epoch_Number, model, model_name, Training_data, isSave=True, Save_Frequency=10):
-    for epoch in range(Epoch_Number):
-        logging.info("epoch Number: " + str(epoch))
-        if (isSave and epoch % Save_Frequency == 0 and epoch!=0):
-            modelname = './myIMDB_model_' + model_name + '.d2v'
-            model.save(modelname)
-            logging.info("model saved successfully")
-        #random.shuffle(Training_data)
-        model.train(Training_data)
-        model.alpha *= 0.99
-        model.min_alpha = model.alpha
-        if(model.alpha < 1e-4):
-            break
-    model.save('./myIMDB_model_' + model_name + '.d2v')
-    logging.info("model Trained successfully")
+##############################################################################################
 
-def Load_Model(name='./myIMDB_model.d2v'):
-    return Doc2Vec.load(name)
+from gensim.models import Doc2Vec
+import gensim.models.doc2vec
+from collections import OrderedDict
+import multiprocessing
 
-def train_Classifier(Doc_Vector):
-    mydocvec = []
-    docvec_labels = []
-    for i in range(len(Doc_Vector)):
-        if (mylabel[i] != -1):
-            mydocvec.append(Doc_Vector[i])
-            docvec_labels.append(mylabel[i])
+cores = multiprocessing.cpu_count()
 
+simple_models = [
+    # PV-DM w/concatenation - window=5 (both sides) approximates paper's 10-word total window size
+    Doc2Vec(dm=1, dm_concat=1, size=150, window=5,sample=1e-2, negative=5, hs=0, min_count=2, workers=cores),
+    # PV-DBOW
+    Doc2Vec(dm=0, size=150, negative=5,window=5, hs=0, min_count=2, workers=cores),
+    # PV-DM w/average
+    Doc2Vec(dm=1, dm_mean=1, size=150, window=5, negative=5, hs=0, min_count=2, workers=cores),
+]
 
-    logging.info("training logistic regression classifier...")
+# speed setup by sharing results of 1st model's vocabulary scan
+simple_models[0].build_vocab(alldocs)  # PV-DM/concat requires one special NULL word so it serves as template
+print(simple_models[0])
+for model in simple_models[1:]:
+    model.reset_from(simple_models[0])
+    print(model)
+
+#simple_models[0].intersect_word2vec_format('GoogleNews-vectors-negative300.bin', binary=True)
+#simple_models[1].intersect_word2vec_format('GoogleNews-vectors-negative300.bin', binary=True)
+#simple_models[2].intersect_word2vec_format('GoogleNews-vectors-negative300.bin', binary=True)
+
+models_by_name = OrderedDict((str(model), model) for model in simple_models)
+
+#for model in simple_models:
+#    model.syn0_lockf[:] = 1
+
+#########################################################################################################
+
+from gensim.test.test_doc2vec import ConcatenatedDoc2Vec
+models_by_name['dbow+dmm'] = ConcatenatedDoc2Vec([simple_models[1], simple_models[2]])
+models_by_name['dbow+dmc'] = ConcatenatedDoc2Vec([simple_models[1], simple_models[0]])
+
+##########################################################################################################
+import numpy as np
+from random import sample
+
+def logistic_predictor_from_data(train_targets, train_regressors):
+
     classifier = LogisticRegression()
-    classifier.fit(mydocvec, docvec_labels)
+    classifier.fit(np.asarray(train_regressors), np.asarray(train_targets))
+    return classifier
 
-    logging.info("training logistic Neural network classifier")
-    nn = Classifier(layers=[Layer("Rectifier", units=100), Layer("Softmax")],
-                    learning_rate=0.02,batch_size=1,n_iter=100)
-    nn.fit(np.asarray(mydocvec), np.asarray(docvec_labels))
+def error_rate_for_model(test_model, train_set, test_set, infer=False, infer_steps=15, infer_alpha=0.05, infer_subsample=1):
+    """Report error rate on test_doc sentiments, using supplied model and train_docs"""
 
-    return(nn, classifier)
+    train_targets, train_regressors = zip(*[(doc.sentiment, test_model.docvecs[doc.tags[0]]) for doc in train_set])
+    #train_regressors = sm.add_constant(train_regressors)
+    predictor = logistic_predictor_from_data(train_targets, train_regressors)
 
-def test_Classifier(classifier, model, extra_model = None):
-    test_sentences_vec = []
-    if(extra_model == None):
-        for sent in test_sentences:
-            mydocwords = sent[0]
-            myvec = model.infer_vector(mydocwords, alpha=0.05, min_alpha=0.0001, steps=50)
-            test_sentences_vec.append(myvec)
+    test_data = test_set
+    if infer:
+        if infer_subsample < 1.0:
+            test_data = sample(test_data, int(infer_subsample * len(test_data)))
+        test_regressors = [test_model.infer_vector(doc.words, steps=infer_steps, alpha=infer_alpha) for doc in test_data]
     else:
-        for sent in test_sentences:
-            mydocwords = sent[0]
-            first_vec = np.asarray(model.infer_vector(mydocwords, alpha=0.05, min_alpha= 0.0001, steps=50))
-            sec_vec = np.asarray(extra_model.infer_vector(mydocwords, alpha=0.1, min_alpha= 0.0001, steps=50))
-            test_sentences_vec.append(Concat_Paragraph_Vector(v1=first_vec, v2= sec_vec))
+        test_regressors = [test_model.docvecs[doc.tags[0]] for doc in test_docs]
+    #test_regressors = sm.add_constant(test_regressors)
 
-    score = classifier.score(np.asarray(test_sentences_vec), np.asarray(test_labels))
-    return score
+    # predict & evaluate
+    test_predictions = predictor.predict(test_regressors)
+    corrects = sum(np.rint(test_predictions) == [doc.sentiment for doc in test_data])
+    errors = len(test_predictions) - corrects
+    error_rate = float(errors) / len(test_predictions)
+    return (error_rate, errors, len(test_predictions), predictor)
 
-def Concat_Paragraph_Vector(v1, v2):
-    result = np.hstack((v1, v2))
-    #result = v1 + v2
-    return result
+##################################################################################################
+from collections import defaultdict
+best_error = defaultdict(lambda :1.0)  # to selectively-print only best errors achieved
 
-def main(argv):
-    print(argv)
-    ################################# Model parameters ###############################
-    Feature_Dimention = 150
-    Learning_Rate = 0.05
-    Context_Size = 10
-    Min_Count = 2
-    Sample_Frequency = 1e-2
-    Worker_Count = 8
-    Training_Algorithm = 1  # 1 is for pv-dm and 0 is for pv-DBOW
-    isHirarcal_Sampling = 1  # if set to one Hirarcal Sampling is used else not
-    Negative_Sampling_Count = 25
-    Dbow_Words = 0  # if set to one traines the model with skip-gram and DBOW simultancly
-    Dm_mean = 0  # if set to zero uses the sum of the word vector else if set to one uses the average of word vectors
-    Dm_Concat = 1  # if set to one uses the concatination of context word vectors else if set to one uses the average
-    ##########################################################################################
-    Load_Data(is_remove_stopwords)
+##################################################################################################
+from random import shuffle
+import datetime
 
-    PV_DM_Model = Doc2Vec(documents=sentences,size=Feature_Dimention, alpha=Learning_Rate, min_alpha=Learning_Rate, window=Context_Size,
-                          min_count=Min_Count, sample=Sample_Frequency, workers=Worker_Count, dm=Training_Algorithm,
-                          hs=isHirarcal_Sampling, negative=Negative_Sampling_Count, dbow_words=Dbow_Words,
-                          dm_mean=Dm_mean, dm_concat=Dm_Concat)
-    #PV_DM_Model = Doc2Vec(min_count=1, window=5, size=100, sample=1e-4, negative=5, workers=1)
-    logging.info("PV_DM_Model created successfully")
-    Training_Algorithm = 0 # to build a pv_dbow model
-    Sample_Frequency = 1e-4
-    PV_DBOW_Model = Doc2Vec(documents=sentences, size=Feature_Dimention, alpha=Learning_Rate, min_alpha=Learning_Rate, window=Context_Size,
-                            min_count=Min_Count, sample=Sample_Frequency, workers=Worker_Count, dm=Training_Algorithm,
-                            hs=isHirarcal_Sampling, negative=Negative_Sampling_Count, dbow_words=Dbow_Words,
-                            dm_mean=Dm_mean, dm_concat=Dm_Concat)
-    #PV_DBOW_Model = Doc2Vec(min_count=1, window=5, size=100, sample=1e-4, dm = 0, negative=5, workers=1)
-    logging.info("PV_DBOW_Model created successfully")
+alpha, min_alpha, passes = (0.025, 0.001, 20)
+alpha_delta = (alpha - min_alpha) / passes
 
-    #permuted_sentences = copy.deepcopy(sentences)
-    #random.shuffle(permuted_sentences)
+print("START %s" % datetime.datetime.now())
+destfile = open("doc2vec_Sentiment_result.txt", "w")
+for epoch in range(passes):
+    print("epoch Number: ", epoch)
+    shuffle(doc_list)  # shuffling gets best results
 
-    #PV_DM_Model.build_vocab(sentences)
-    #PV_DBOW_Model.build_vocab(sentences)
+    for name, train_model in models_by_name.items():
+        # train
+        duration = 'na'
+        train_model.alpha, train_model.min_alpha = alpha, alpha
+        train_model.train(doc_list)
 
-    logging.info("Training PV_DM_Model...")
-    Train_Model(Epoch_Number=num_Of_epoch, model=PV_DM_Model, model_name='PV_DM', Training_data=sentences,
-                isSave=True, Save_Frequency=20)
+        # evaluate
 
-    logging.info("Training PV_DBOW Model...")
-    Train_Model(Epoch_Number=num_Of_epoch, model=PV_DBOW_Model, model_name='PV_DBOW', Training_data=sentences,
-                isSave=True, Save_Frequency=40)
+        if ((epoch + 1) % 10) == 0:
+            infer_err, err_count, test_count, predictor = error_rate_for_model(train_model, train_docs, test_docs,
+                                                                               infer_steps=15, infer_alpha=0.05, infer=True, infer_subsample=1)
+            best_indicator = ' '
+            if infer_err < best_error[name + '_inferred']:
+                best_error[name + '_inferred'] = infer_err
+                best_indicator = '*'
+            print("%s%f : %i passes : %s" % (best_indicator, infer_err, epoch + 1, name + '_inferred'))
+            destfile.write("%s%f : %i passes : %s" % (best_indicator, infer_err, epoch + 1, name + '_inferred'))
+            destfile.write("\n")
 
-
-    pvdm_vectors = np.asarray(PV_DM_Model.docvecs)
-    pvdbow_vectors = np.asarray(PV_DBOW_Model.docvecs)
-    concat_vector = Concat_Paragraph_Vector(v1=pvdm_vectors, v2=pvdbow_vectors)
-    ############################################################################################
-    #import matplotlib.pyplot as plt
-    #from sklearn.decomposition import PCA
-    #pca = PCA(n_components=2)
-    #X_r = pca.fit_transform(concat_vector)
-    #for i in range(len(X_r)):
-    #    if(mylabel[i] == 0):
-    #        color = 'r'
-    #    if(mylabel[i] == 1):
-    #        color = 'b'
-    #    plt.scatter(X_r[i,0], X_r[i,1], color= color )
-    #plt.show()
-    #from sklearn.manifold import TSNE
-    #import matplotlib.pyplot as plt
-
-    #ts = TSNE(2)
-    #reduced_vecs = ts.fit_transform(concat_vector)
-    #for i in range(len(reduced_vecs)):
-    #    if(mylabel[i] == 0):
-    #        color = 'r'
-    #    if(mylabel[i] == 1):
-    #        color = 'b'
-    #    plt.scatter(reduced_vecs[i,0], reduced_vecs[i,1], color= color )
-    #plt.show()
-    #############################################################################################
-    nn, classifier = train_Classifier(concat_vector)
-
-    score = test_Classifier(classifier, PV_DM_Model , PV_DBOW_Model)
-    destfile.write("Logistic Regression score is: " + str(score))
+    print('completed pass %i at alpha %f' % (epoch + 1, alpha))
+    destfile.write('completed pass %i at alpha %f' % (epoch + 1, alpha))
     destfile.write("\n")
-    print("Logistic Regression Score is: ", score)
+    alpha -= alpha_delta
 
-    score = test_Classifier(nn, PV_DM_Model, PV_DBOW_Model)
-    destfile.write("NN score is: " + str(score))
-    destfile.write("\n")
-    print("NN Score is: ", score)
+print("END %s" % str(datetime.datetime.now()))
 
-if __name__ == "__main__":
-    start = timeit.default_timer()
-    main(sys.argv)
-    stop = timeit.default_timer()
-    spent_time = int(stop - start)
-    sec = spent_time % 60
-    spent_time = spent_time / 60
-    minute = spent_time % 60
-    spent_time = spent_time / 60
-    hours = spent_time
-    logging.info("h: " + str(hours) + "  minutes: " + str(minute) + "  secunds: " + str(sec))
-    destfile.write("h: " + str(hours) + "  minutes: " + str(minute) + "  secunds: " + str(sec))
-    destfile.close()
+simple_models[0].save('./simple_model0')
+simple_models[1].save('./simple_model1')
+simple_models[2].save('./simple_model2')
+###############################################################################################
+# print best error rates achieved
+for rate, name in sorted((rate, name) for name, rate in best_error.items()):
+    print("%f %s" % (rate, name))
+    #destfile("%f %s" % (rate, name))
