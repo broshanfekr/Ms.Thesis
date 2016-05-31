@@ -131,7 +131,8 @@ def build_input_data(sentences, labels):
     """
     Maps sentencs and labels to vectors based on a vocabulary.
     """
-    doc2vec_Model = Load_Model(name='doc2vec_model/simple_model0')
+    #doc2vec_Model = Load_Model(name='doc2vec_model/simple_model0')
+    doc2vec_Model = Load_Model(name='simple_model0')
     doc2vec_vocab = doc2vec_Model.vocab
     doc2vec_vec = doc2vec_Model.syn0
 
