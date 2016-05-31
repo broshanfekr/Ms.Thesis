@@ -1,0 +1,39 @@
+completed pass 1 at alpha 0.025000
+completed pass 2 at alpha 0.023800
+completed pass 3 at alpha 0.022600
+completed pass 4 at alpha 0.021400
+completed pass 5 at alpha 0.020200
+completed pass 6 at alpha 0.019000
+completed pass 7 at alpha 0.017800
+completed pass 8 at alpha 0.016600
+completed pass 9 at alpha 0.015400
+*0.195840 : 10 passes : Doc2Vec(dm/c,d150,n5,w5,mc2,s0.01,t8)_inferred
+*0.125440 : 10 passes : Doc2Vec(dbow,d150,n5,mc2,t8)_inferred
+*0.211360 : 10 passes : Doc2Vec(dm/m,d150,n5,w5,mc2,t8)_inferred
+*0.116400 : 10 passes : dbow+dmm_inferred
+*0.119040 : 10 passes : dbow+dmc_inferred
+completed pass 10 at alpha 0.014200
+completed pass 11 at alpha 0.013000
+completed pass 12 at alpha 0.011800
+completed pass 13 at alpha 0.010600
+completed pass 14 at alpha 0.009400
+completed pass 15 at alpha 0.008200
+completed pass 16 at alpha 0.007000
+completed pass 17 at alpha 0.005800
+completed pass 18 at alpha 0.004600
+completed pass 19 at alpha 0.003400
+*0.190840 : 20 passes : Doc2Vec(dm/c,d150,n5,w5,mc2,s0.01,t8)_inferred
+*0.122440 : 20 passes : Doc2Vec(dbow,d150,n5,mc2,t8)_inferred
+ 0.254560 : 20 passes : Doc2Vec(dm/m,d150,n5,w5,mc2,t8)_inferred
+ 0.119680 : 20 passes : dbow+dmm_inferred
+ 0.119480 : 20 passes : dbow+dmc_inferred
+completed pass 20 at alpha 0.002200
+
+END 2016-05-24 01:56:56.842356
+0.116400 dbow+dmm_inferred
+0.119040 dbow+dmc_inferred
+0.122440 Doc2Vec(dbow,d150,n5,mc2,t8)_inferred
+0.190840 Doc2Vec(dm/c,d150,n5,w5,mc2,s0.01,t8)_inferred
+0.211360 Doc2Vec(dm/m,d150,n5,w5,mc2,t8)_inferred
+
+Process finished with exit code 0
