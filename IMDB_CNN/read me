@@ -1,1 +1,2 @@
-To run this. data should placed in the same directory with other files and then run train.py
+after placing data file (total.rar) in the same directory with text_cnn.py, train.py, data_helpers.py and doc2vec.py, it's necessary to
+run doc2vec.py and train.py respectively.
