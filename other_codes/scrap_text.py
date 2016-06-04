@@ -5,14 +5,12 @@ from bs4 import BeautifulSoup
 import time
 
 total_page = 52
-myurl = 'http://digikala.com/Product/DKP-102068/LG-V10-Mobile-Phone/%DA%AF%D9%88%D8%B4%D9%8A-%D9%85%D9%88%D8%A8%D8%A7%D9%8A%D9%84-%D8%A7%D9%84%E2%80%8C%D8%AC%D9%8A-%D9%85%D8%AF%D9%84-V10#!/displaycomment-0/page-1/sort-date/tab-comments/'
+myurl = ''
 #browser = webdriver.Firefox()
 browser = webdriver.PhantomJS()
 browser.get(myurl)
 corrent_page = 'page-1'
 #browser.implicitly_wait(30)
-#first_add = 'http://digikala.com/Product/DKP-117313/LG-K10-Dual-SIM-Mobile-Phone/%DA%AF%D9%88%D8%B4%D9%8A-%D9%85%D9%88%D8%A8%D8%A7%D9%8A%D9%84-%D8%A7%D9%84-%D8%AC%D9%8A-%D9%85%D8%AF%D9%84-K10-%D8%AF%D9%88-%D8%B3%D9%8A%D9%85-%DA%A9%D8%A7%D8%B1%D8%AA#!/displaycomment-0/page-1/sort-date/tab-comments/'
-#sec_add = '/sort-date/tab-comments/'
 
 page_number = 1
 mydata = []
