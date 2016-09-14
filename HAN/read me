@@ -1,0 +1,1 @@
+Insert all files with "total.tar" and "skip_gram_vectors.bin" together in one directory, then run "train_LSTM.py".
