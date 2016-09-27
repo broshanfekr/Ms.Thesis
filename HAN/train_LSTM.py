@@ -29,7 +29,7 @@ tf.flags.DEFINE_boolean("allow_soft_placement", True, "Allow device soft device 
 tf.flags.DEFINE_boolean("log_device_placement", False, "Log placement of ops on devices")
 
 tf.flags.DEFINE_boolean("is_load_model", False, "do we want to load previes model?")
-tf.flags.DEFINE_boolean("rt_dataset", True, "use rt dataset")
+tf.flags.DEFINE_boolean("rt_dataset", False, "use rt dataset")
 
 
 FLAGS = tf.flags.FLAGS
