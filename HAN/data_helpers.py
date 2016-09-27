@@ -16,7 +16,12 @@ import random
 def Load_Model(name='./myIMDB_model.d2v'):
     return Doc2Vec.load(name)
 
-def clean_str(review_docs, is_decode=True):
+
+def clean_str(review_docs, method=2, is_decode=True):
+    """
+    Tokenization/string cleaning for all datasets except for SST.
+    Original taken from https://github.com/yoonkim/CNN_sentence/blob/master/process_data.py
+    """
     output_docs = []
     for string in review_docs:
         if(is_decode==True):
@@ -74,6 +79,7 @@ def Load_IMDB_Data_and_Label(is_remove_stopwords = False):
     test_x_text = test_positive_examples + test_negative_examples
 
     x_text = clean_str(x_text)
+
     test_x_text = clean_str(test_x_text)
 
     # Generate labels
@@ -87,14 +93,28 @@ def Load_IMDB_Data_and_Label(is_remove_stopwords = False):
     test_y = np.concatenate([test_positive_labels, test_negative_labels], 0)
     return [x_text, y, test_x_text, test_y]
 
-def length_calc(sentences, padding_word="<PAD/>"):
+def pad_sentences(sentences, test_sentences, padding_word="<PAD/>"):
+    """
+    Pads all sentences to the same length. The length is defined by the longest sentence.
+    Returns padded sentences.
+    """
     doc_length = max(len(x) for x in sentences)
+    doc_length1 = max(len(x) for x in test_sentences)
+    sequence_length = max(doc_length, doc_length1)
 
     sent_length = 0
     for sent in sentences:
         for x in sent:
             if(len(x) > sent_length):
                 sent_length = len(x)
+
+    sent_length1 = 0
+    for sent in test_sentences:
+        for x in sent:
+            if(len(x) > sent_length1):
+                sent_length1 = len(x)
+
+    sent_length = max(sent_length, sent_length1)
 
     return doc_length, sent_length
 
@@ -148,7 +168,12 @@ def load_rt_data_and_labels():
     # Split by words
     x_text = positive_examples + negative_examples
     x_text = clean_str(x_text, is_decode=False)
-    doc_length, sent_length = length_calc(x_text)
+    doc_length = max(len(x) for x in x_text)
+    sent_length = 0
+    for sent in x_text:
+        for x in sent:
+            if(len(x) > sent_length):
+                sent_length = len(x)
 
     # Generate labels
     positive_labels = [[0, 1] for _ in positive_examples]
@@ -169,7 +194,7 @@ def load_data():
     """
     # Load and preprocess data
     sentences, labels, test_sentences , test_labels = Load_IMDB_Data_and_Label()
-    doc_length, sent_length = length_calc(sentences + test_sentences)
+    doc_length, sent_length = pad_sentences(sentences, test_sentences)
     #vocabulary, vocabulary_inv = build_vocab(sentences + test_sentences)
     word2vec_Model = Word2Vec.load_word2vec_format('skip_gram_vectors.bin', binary=True)  # C binary format
     word2vec_vocab = word2vec_Model.vocab
