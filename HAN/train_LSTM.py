@@ -19,21 +19,24 @@ tf.flags.DEFINE_integer("embedding_dim", 150, "Dimensionality of character embed
 tf.flags.DEFINE_integer("n_hidden", 200, "Dimensionality of LSTM hidden layer (default: 200)")
 tf.flags.DEFINE_integer("n_hidden_attention", 100, "Dimensionality of attention hidden layer (default: 200)")
 tf.flags.DEFINE_integer("n_classes", 2, "Number of classes (default: 2")
-tf.flags.DEFINE_integer("evaluate_every", 2, "Evaluate model on dev set after this many steps (default: 100)")
-tf.flags.DEFINE_integer("checkpoint_every", 5, "Save model after this many steps (default: 100)")
+tf.flags.DEFINE_integer("evaluate_every", 3, "Evaluate model on dev set after this many steps (default: 100)")
+tf.flags.DEFINE_integer("checkpoint_every", 1, "Save model after this many steps (default: 100)")
 tf.flags.DEFINE_float("l2_reg_lambda", 0.000005, "L2 regularizaion lambda (default: 0.0)")
-tf.flags.DEFINE_float("dropout_keep_prob", 0.85, "Dropout keep probability (default: 0.5)")
+tf.flags.DEFINE_float("dropout_keep_prob", 0.5, "Dropout keep probability (default: 0.5)")
 tf.flags.DEFINE_string("checkpoint_dir", "runs/checkpoints", "Checkpoint directory from training run")
 
-tf.flags.DEFINE_boolean("is_load_model", False, "want to load a trained model to continue training or test")
-tf.flags.DEFINE_boolean("rt_dataset", False, "use rt dataset")
+tf.flags.DEFINE_boolean("allow_soft_placement", True, "Allow device soft device placement")
+tf.flags.DEFINE_boolean("log_device_placement", False, "Log placement of ops on devices")
+
+tf.flags.DEFINE_boolean("is_load_model", False, "do we want to load previes model?")
+tf.flags.DEFINE_boolean("rt_dataset", True, "use rt dataset")
 
 
 FLAGS = tf.flags.FLAGS
 FLAGS._parse_flags()
 destfile = open("LSTM_Sentiment_result.txt", "w")
 print("\nParameters:")
-destfile.write("Parameters\n")
+destfile.write("Parameters")
 destfile.write("\n")
 for attr, value in sorted(FLAGS.__flags.items()):
     print("{}={}".format(attr.upper(), value))
@@ -60,6 +63,8 @@ else:
 seq_max_len = [doc_length, sent_length]
 ##################################################################################################
 ##############################  Variable Definition ##############################################
+# n_input = embedding_size
+# s_steps = sequence_length
 input_x = tf.placeholder(tf.float32, [None, seq_max_len[0], seq_max_len[1], FLAGS.embedding_dim], name="input_x")
 input_y = tf.placeholder(tf.float32, [None, FLAGS.n_classes], name='input_y')
 doc_len_list = tf.placeholder(tf.int64, [None], name='seq_len_list')
@@ -126,13 +131,15 @@ with tf.name_scope('Accuracy'):
 
 with tf.name_scope('Optimizer'):
     optimize = tf.train.AdamOptimizer(learning_rate=FLAGS.learning_rate).minimize(loss)# Adam Optimizer
+
 ##################################################################################################
 ################################# make summary ###################################################
-out_dir = os.path.abspath(os.path.join(os.path.curdir, "runs"))
+out_dir = os.path.abspath(os.path.join(os.path.curdir, "runs2"))
 checkpoint_dir = os.path.abspath(os.path.join(out_dir, "checkpoints"))
 checkpoint_prefix = os.path.join(checkpoint_dir, "mymodel")
 if not os.path.exists(checkpoint_dir):
     os.makedirs(checkpoint_dir)
+#saver = tf.train.Saver(tf.all_variables())
 saver = tf.train.Saver()
 
 # Summaries for loss and accuracy
@@ -156,6 +163,7 @@ for var in tf.trainable_variables():
 #    tf.histogram_summary(var.name + '/gradient', grad)
 # Merge all summaries into a single op
 merged_summary_op = tf.merge_all_summaries()
+
 ############################# end summary ########################################################
 ##################################################################################################
 if(FLAGS.is_load_model == True):
@@ -170,8 +178,8 @@ with tf.Session() as sess:
     if(FLAGS.is_load_model == True):
         load_path = saver.restore(sess, checkpoint_file)
         pass
-
     # op to write logs to Tensorboard
+
     all_summary_writer = tf.train.SummaryWriter(all_summary_dir, graph=tf.get_default_graph())
     train_summary_writer = tf.train.SummaryWriter(train_summary_dir, graph=tf.get_default_graph())
     dev_summary_writer = tf.train.SummaryWriter(dev_summary_dir, graph=tf.get_default_graph())
@@ -266,24 +274,26 @@ with tf.Session() as sess:
             sent_len_list : batch_seq_len[1],
             sent_mask_list : sent_mask,
             doc_mask_list : doc_mask,
+
             dropout_keep_prob: FLAGS.dropout_keep_prob
         }
+
         '''
-        vars = sess.run([my_vars], feed_dict=myfeed_dict)
-        vars = vars[0]
+        suse_vars = sess.run([my_vars], feed_dict=myfeed_dict)
+        suse_vars = suse_vars[0]
         embedded_words,\
         hidden_matrix,\
         sent_output,\
         first_alfa,\
-        sent_word_weigth,\
-        weigthed_words,\
+        sent_alfa,\
+        tmp_weight,\
         weigthed_sent_outputs,\
         sent_lstm_outputs,\
         doc_output,\
-        doc_weigth,\
-        weigthed_docs,\
+        doc_alfa,\
+        tmp2_weight,\
         final_output,\
-        output_layer=vars
+        output_layer = suse_vars
         '''
 
         _, cost, acc, currect_predict, weigth_norm, summaries, all_summaries = sess.run(
@@ -319,9 +329,7 @@ with tf.Session() as sess:
             batch_seq_len = batch[1]
             train_step(batch_xs, batch_ys, batch_seq_len, my_train_step, epoch)
 
-        if ((epoch + 1) % FLAGS.checkpoint_every == 0):
-            path = saver.save(sess, checkpoint_prefix, global_step=(epoch+1))
-            print("Saved model checkpoint to {}\n".format(path))
+        if((epoch + 1) % FLAGS.evaluate_every == 0):
             print("testing on dev set: ")
             destfile.write("testing on dev set:\n")
             dev_step(x_dev, y_dev)
@@ -331,6 +339,11 @@ with tf.Session() as sess:
             print("testing on train set: ")
             destfile.write("testing on train set: \n")
             dev_step(x_train, y_train, test_set="train")
+
+        if ((epoch + 1) % FLAGS.checkpoint_every == 0):
+            path = saver.save(sess, checkpoint_prefix, global_step=(epoch+1))
+            print("Saved model checkpoint to {}\n".format(path))
+
 
     path = saver.save(sess, checkpoint_prefix,global_step=20)
     print("Saved model checkpoint to {}\n".format(path))
