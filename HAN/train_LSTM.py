@@ -443,8 +443,5 @@ if __name__ == "__main__":
     destfile.write("\nh: " + str(hours) + "  minutes: " + str(minute) + "  secunds: " + str(sec) + "\n")
     destfile.close()
 
-    import os
-    import signal
-    os.kill(os.getppid(), signal.SIGHUP)
 
 #tensorboard --logdir
