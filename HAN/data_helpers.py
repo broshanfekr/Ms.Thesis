@@ -3,7 +3,7 @@ import re
 import itertools
 from collections import Counter
 import tarfile
-from bs4 import BeautifulSoup
+# from bs4 import BeautifulSoup
 from gensim.models import Doc2Vec
 import gensim
 import copy
@@ -17,21 +17,33 @@ def Load_Model(name='./myIMDB_model.d2v'):
     return Doc2Vec.load(name)
 
 
-def clean_str(review_docs, method=2, is_decode=True):
+def clean_str(review_docs, max_seq_len_cutoff, is_decode=True):
     """
     Tokenization/string cleaning for all datasets except for SST.
     Original taken from https://github.com/yoonkim/CNN_sentence/blob/master/process_data.py
     """
     output_docs = []
     for string in review_docs:
-        if(is_decode==True):
+        if (is_decode == True):
             string = string.decode("utf-8")
         else:
             pass
+
+
+        string = string.lower()
+
+
+        susegar = wordpunct_tokenize(string)
+        if(len(susegar) > max_seq_len_cutoff):
+            continue
+            words = words[:max_seq_len_cutoff]
+            string = ' '.join(word for word in words)
+
+
         sentences = tokenize.sent_tokenize(string)
         sent_words = []
         for sent in sentences:
-            if(len(sent) == 1):
+            if (len(sent) == 1):
                 continue
             words = wordpunct_tokenize(sent)
             for index, w in enumerate(words):
@@ -41,8 +53,8 @@ def clean_str(review_docs, method=2, is_decode=True):
         output_docs.append(sent_words)
     return output_docs
 
-def Load_IMDB_Data_and_Label(is_remove_stopwords = False):
-    dataset_file_name = "total.tar"
+
+def Load_IMDB_Data_and_Label(dataset_file_name="total.tar", max_seq_len_cutoff=1350, is_remove_stopwords=False):
     tar = tarfile.open(dataset_file_name)
     for member in tar.getmembers():
         file_name = member.name.split("-")
@@ -51,20 +63,20 @@ def Load_IMDB_Data_and_Label(is_remove_stopwords = False):
         f = tar.extractfile(member)
         content = f.readlines()
         f.close()
-        if(isTrain == "train"):
-            if(data_label == "pos"):
+        if (isTrain == "train"):
+            if (data_label == "pos"):
                 positive_examples = content
                 print('posetive data parsed from training set')
-            elif(data_label == "neg"):
+            elif (data_label == "neg"):
                 negative_examples = content
                 print("negative data parsed from training set")
             else:
                 pass
-        elif(isTrain == "test"):
-            if(data_label == "pos"):
+        elif (isTrain == "test"):
+            if (data_label == "pos"):
                 test_positive_examples = content
                 print("test positive examples loaded")
-            elif(data_label == "neg"):
+            elif (data_label == "neg"):
                 test_negative_examples = content
                 print("negative sentences parsed from testing set")
     tar.close()
@@ -78,9 +90,11 @@ def Load_IMDB_Data_and_Label(is_remove_stopwords = False):
     x_text = positive_examples + negative_examples
     test_x_text = test_positive_examples + test_negative_examples
 
-    x_text = clean_str(x_text)
+    x_text = clean_str(x_text, max_seq_len_cutoff)  # [clean_str(sent) for sent in x_text]
+    # x_text = [s.split(" ") for s in x_text]
 
-    test_x_text = clean_str(test_x_text)
+    test_x_text = clean_str(test_x_text, max_seq_len_cutoff)  # [clean_str(sent) for sent in test_x_text]
+    # test_x_text = [s.split(" ") for s in test_x_text]
 
     # Generate labels
     positive_labels = [[0, 1] for _ in positive_examples]
@@ -93,28 +107,18 @@ def Load_IMDB_Data_and_Label(is_remove_stopwords = False):
     test_y = np.concatenate([test_positive_labels, test_negative_labels], 0)
     return [x_text, y, test_x_text, test_y]
 
-def pad_sentences(sentences, test_sentences, padding_word="<PAD/>"):
+def max_seq_sentences(sentences, padding_word="<PAD/>"):
     """
     Pads all sentences to the same length. The length is defined by the longest sentence.
     Returns padded sentences.
     """
     doc_length = max(len(x) for x in sentences)
-    doc_length1 = max(len(x) for x in test_sentences)
-    sequence_length = max(doc_length, doc_length1)
 
     sent_length = 0
     for sent in sentences:
         for x in sent:
-            if(len(x) > sent_length):
+            if (len(x) > sent_length):
                 sent_length = len(x)
-
-    sent_length1 = 0
-    for sent in test_sentences:
-        for x in sent:
-            if(len(x) > sent_length1):
-                sent_length1 = len(x)
-
-    sent_length = max(sent_length, sent_length1)
 
     return doc_length, sent_length
 
@@ -155,67 +159,62 @@ def build_input_data_from_word2vec(sentence, word2vec_vocab, word2vec_vec):
     X_data = np.asarray(X_data)
     return X_data
 
-def load_rt_data_and_labels():
+def load_data(dataset_path, word2vec_model_path, n_class=2, max_seq_len_cutoff=1350):
     """
-    Loads MR polarity data from files, splits the data into words and generates labels.
-    Returns split sentences and labels.
+    Loads and preprocessed data from dataset file.
     """
-    # Load data from files
-    positive_examples = list(open("./data/rt-polaritydata/rt-polarity.pos", "r").readlines())
-    positive_examples = [s.strip() for s in positive_examples]
-    negative_examples = list(open("./data/rt-polaritydata/rt-polarity.neg", "r").readlines())
-    negative_examples = [s.strip() for s in negative_examples]
-    # Split by words
-    x_text = positive_examples + negative_examples
-    x_text = clean_str(x_text, is_decode=False)
+    if (dataset_path.split("/")[-1] == "total.tar"):
+        sentences, labels, test_sentences, test_labels = Load_IMDB_Data_and_Label(dataset_path, max_seq_len_cutoff)
+        x_text = sentences + test_sentences
+        y = np.concatenate([labels, test_labels], 0)
+    else:
+        dataset_file = open(dataset_path, "r")
+        dataset_content = dataset_file.readlines()
+
+        x_text = []
+        y = []
+        for element in dataset_content:
+            element = element.lower()
+            element = element.split("\t")
+            label = int(element[0])
+            text = element[1].strip()
+            if (len(text) == 0):
+                continue
+            x_text.append(text)
+            tmp_lable = np.zeros(n_class)
+            if (n_class == 2):
+                tmp_lable[label] = 1
+            else:
+                tmp_lable[label - 1] = 1
+            y.append(tmp_lable)
+
+        x_text = clean_str(x_text, max_seq_len_cutoff, is_decode=False)
+
+    y = np.asarray(y)
     doc_length = max(len(x) for x in x_text)
+
     sent_length = 0
     for sent in x_text:
         for x in sent:
-            if(len(x) > sent_length):
+            if (len(x) > sent_length):
                 sent_length = len(x)
 
-    # Generate labels
-    positive_labels = [[0, 1] for _ in positive_examples]
-    negative_labels = [[1, 0] for _ in negative_examples]
-    y = np.concatenate([positive_labels, negative_labels], 0)
-    #calculate sequence length
-    #vocabulary, vocabulary_inv = build_vocab(x_text)
-    word2vec_Model = Word2Vec.load_word2vec_format('rt_skip_gram_vectors.bin', binary=True)  # C binary format
+    word2vec_Model = Load_Model(word2vec_model_path)
     word2vec_vocab = word2vec_Model.vocab
     word2vec_vec = word2vec_Model.syn0
-
     return [x_text, y, doc_length, sent_length, word2vec_vocab, word2vec_vec]
 
-def load_data():
-    """
-    Loads and preprocessed data for the MR dataset.
-    Returns input vectors, labels, vocabulary, and inverse vocabulary.
-    """
-    # Load and preprocess data
-    sentences, labels, test_sentences , test_labels = Load_IMDB_Data_and_Label()
-    doc_length, sent_length = pad_sentences(sentences, test_sentences)
-    #vocabulary, vocabulary_inv = build_vocab(sentences + test_sentences)
-    word2vec_Model = Word2Vec.load_word2vec_format('skip_gram_vectors.bin', binary=True)  # C binary format
-    word2vec_vocab = word2vec_Model.vocab
-    word2vec_vec = word2vec_Model.syn0
-    #x, y = build_input_data_from_word2vec(sentences + test_sentences, np.concatenate([labels, test_labels], 0))
-    x = sentences + test_sentences
-    y = np.concatenate([labels, test_labels], 0)
-    return [x, y, doc_length, sent_length, word2vec_vocab, word2vec_vec]
 
-def batch_iter(data, batch_size, seq_length, emmbedding_size,word2vec_vocab, word2vec_vec, is_shuffle=True):
+def batch_iter(data, batch_size, seq_length, emmbedding_size, word2vec_vocab, word2vec_vec, is_shuffle=True):
     """
     Generates a batch iterator for a dataset.
     """
     data_size = len(data)
-    num_batches_per_epoch = int(len(data)/batch_size) + 1
-
+    num_batches_per_epoch = int(len(data) / batch_size) + 1
 
     # Shuffle the data at each epoch
     if is_shuffle:
         random.shuffle(data)
-
 
     for batch_num in range(num_batches_per_epoch):
         start_index = batch_num * batch_size
@@ -233,12 +232,12 @@ def batch_iter(data, batch_size, seq_length, emmbedding_size,word2vec_vocab, wor
 
                 sent_seq_len.append(len(sent))
                 sent_vector = build_input_data_from_word2vec(sent, word2vec_vocab, word2vec_vec)
-                if(len(sent_vector) < seq_length[1]):
+                if (len(sent_vector) < seq_length[1]):
                     num_padding = seq_length[1] - len(sent)
                     x_bar = np.zeros([num_padding, emmbedding_size])
                     sent_vector = np.concatenate([sent_vector, x_bar], axis=0)
                 tmp_sent.append(sent_vector)
-            if(len(tmp_sent) < seq_length[0]):
+            if (len(tmp_sent) < seq_length[0]):
                 num_padding = seq_length[0] - len(tmp_sent)
                 x_bar = np.zeros([num_padding, seq_length[1], emmbedding_size])
                 tmp_sent = np.concatenate([tmp_sent, x_bar], axis=0)

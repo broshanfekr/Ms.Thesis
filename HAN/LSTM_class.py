@@ -40,7 +40,7 @@ def dynamic_bidirectional_LSTM(input_x, embedding_size, seq_max_len, doc_len_lis
         sent_alfa = tf.mul(sent_alfa, sent_mask_list)
 
         Normalize_factor = tf.reduce_sum(sent_alfa, 1, keep_dims=True)
-        Normalize_factor = tf.add(Normalize_factor, 1.0e-20)
+        Normalize_factor = tf.add(Normalize_factor, 1.0e-15)
         sent_alfa = tf.div(sent_alfa, Normalize_factor)
         tmp_weight = tf.reduce_sum(sent_alfa, 1)
 
@@ -75,7 +75,7 @@ def dynamic_bidirectional_LSTM(input_x, embedding_size, seq_max_len, doc_len_lis
         doc_alfa = tf.mul(doc_alfa, doc_mask_list)
 
         Normalize_factor = tf.reduce_sum(doc_alfa, 1, keep_dims=True)
-        Normalize_factor = tf.add(Normalize_factor, 1.0e-20)
+        Normalize_factor = tf.add(Normalize_factor, 1.0e-15)
         doc_alfa = tf.div(doc_alfa, Normalize_factor)
         tmp2_weight = tf.reduce_sum(doc_alfa, 1)
 
