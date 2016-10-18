@@ -35,7 +35,6 @@ def clean_str(review_docs, max_seq_len_cutoff, is_decode=True):
 
         susegar = wordpunct_tokenize(string)
         if(len(susegar) > max_seq_len_cutoff):
-            continue
             words = words[:max_seq_len_cutoff]
             string = ' '.join(word for word in words)
 
