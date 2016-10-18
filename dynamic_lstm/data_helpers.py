@@ -1,59 +1,38 @@
 import numpy as np
-import re
 import itertools
 from collections import Counter
 import tarfile
-from bs4 import BeautifulSoup
 from gensim.models import Doc2Vec
-import gensim
 import copy
 from nltk.tokenize import wordpunct_tokenize
-from gensim.models.word2vec import Word2Vec
 import random
 
 
 def Load_Model(name='./myIMDB_model.d2v'):
     return Doc2Vec.load(name)
 
+def clean_str(review_docs, max_seq_len_cutoff, is_decode = True):
 
-def clean_str(review_docs, method=2):
-    """
-    Tokenization/string cleaning for all datasets except for SST.
-    Original taken from https://github.com/yoonkim/CNN_sentence/blob/master/process_data.py
-    """
     output_docs = []
-    if(method == 1):
-        for string in review_docs:
-            string = BeautifulSoup(string, "lxml").get_text()
-            string = re.sub(r"[^A-Za-z0-9(),!?\'\`]", " ", string)
-            string = re.sub(r"\'s", " \'s", string)
-            string = re.sub(r"\'ve", " \'ve", string)
-            string = re.sub(r"n\'t", " n\'t", string)
-            string = re.sub(r"\'re", " \'re", string)
-            string = re.sub(r"\'d", " \'d", string)
-            string = re.sub(r"\'ll", " \'ll", string)
-            string = re.sub(r",", " , ", string)
-            string = re.sub(r"!", " ! ", string)
-            string = re.sub(r"\(", " \( ", string)
-            string = re.sub(r"\)", " \) ", string)
-            string = re.sub(r"\?", " \? ", string)
-            string = re.sub(r"\s{2,}", " ", string)
-            string = string.strip().lower()
-            string = string.split(" ")
-            output_docs.append(string)
-    elif(method==2):
-        for string in review_docs:
+
+    for string in review_docs:
+        if(is_decode==True):
             string = string.decode("utf-8")
-            words = wordpunct_tokenize(string)
-            for index, w in enumerate(words):
-                if (w.replace('.', '', 1).isdigit()):
-                    words[index] = '<num>'
-            output_docs.append(words)
+        else:
+            pass
+        words = wordpunct_tokenize(string)
+
+        if(len(words) > max_seq_len_cutoff):
+            words = words[:max_seq_len_cutoff]
+
+        for index, w in enumerate(words):
+            if (w.replace('.', '', 1).isdigit()):
+                words[index] = '<num>'
+        output_docs.append(words)
     return output_docs
 
+def Load_IMDB_Data_and_Label(dataset_file_name= "total.tar", max_seq_len_cutoff=1350, is_remove_stopwords = False):
 
-def Load_IMDB_Data_and_Label(is_remove_stopwords = False):
-    dataset_file_name = "total.tar"
     tar = tarfile.open(dataset_file_name)
     for member in tar.getmembers():
         file_name = member.name.split("-")
@@ -89,10 +68,10 @@ def Load_IMDB_Data_and_Label(is_remove_stopwords = False):
     x_text = positive_examples + negative_examples
     test_x_text = test_positive_examples + test_negative_examples
 
-    x_text = clean_str(x_text)#[clean_str(sent) for sent in x_text]
+    x_text = clean_str(x_text, max_seq_len_cutoff)#[clean_str(sent) for sent in x_text]
     #x_text = [s.split(" ") for s in x_text]
 
-    test_x_text = clean_str(test_x_text)#[clean_str(sent) for sent in test_x_text]
+    test_x_text = clean_str(test_x_text, max_seq_len_cutoff)#[clean_str(sent) for sent in test_x_text]
     #test_x_text = [s.split(" ") for s in test_x_text]
 
     # Generate labels
@@ -105,34 +84,6 @@ def Load_IMDB_Data_and_Label(is_remove_stopwords = False):
     y = np.concatenate([positive_labels, negative_labels], 0)
     test_y = np.concatenate([test_positive_labels, test_negative_labels], 0)
     return [x_text, y, test_x_text, test_y]
-
-'''
-def pad_sentences(sentences, test_sentences, padding_word="<PAD/>"):
-    """
-    Pads all sentences to the same length. The length is defined by the longest sentence.
-    Returns padded sentences.
-    """
-    sequence_length = max(len(x) for x in sentences)
-    sequence_length1 = max(len(x) for x in test_sentences)
-    sequence_length = max(sequence_length, sequence_length1)
-
-    padded_sentences = []
-    for i in range(len(sentences)):
-        sentence = sentences[i]
-        num_padding = sequence_length - len(sentence)
-        new_sentence = sentence + [padding_word] * num_padding
-        padded_sentences.append(new_sentence)
-
-
-    test_sentences_padded = []
-    for i in range(len(test_sentences)):
-        sentence = test_sentences[i]
-        num_padding = sequence_length - len(sentence)
-        new_sentence = sentence + [padding_word] * num_padding
-        test_sentences_padded.append(new_sentence)
-
-    return padded_sentences, test_sentences_padded, sequence_length
-'''
 
 def build_vocab(sentences):
     """
@@ -171,27 +122,49 @@ def build_input_data_from_word2vec(sentence, word2vec_vocab, word2vec_vec):
     X_data = np.asarray(X_data)
     return X_data
 
-def load_data():
+def load_data(dataset_path, word2vec_model_path, n_class=2, max_seq_len_cutoff=1350):
     """
-    Loads and preprocessed data for the MR dataset.
-    Returns input vectors, labels, vocabulary, and inverse vocabulary.
+    Loads and preprocessed data from dataset file.
     """
-    # Load and preprocess data
-    sentences, labels, test_sentences , test_labels = Load_IMDB_Data_and_Label()
-    sequence_length = max(len(x) for x in sentences)
-    sequence_length1 = max(len(x) for x in test_sentences)
-    sequence_length = max(sequence_length, sequence_length1)
-    #sentences_padded, test_sentences_padded, seq_length = pad_sentences(sentences, test_sentences)
-    vocabulary, vocabulary_inv = build_vocab(sentences + test_sentences)
-    #doc2vec_Model = Load_Model(name='simple_model_skipgram')
-    word2vec_Model = Word2Vec.load_word2vec_format('skip_gram_vectors.bin', binary=True)  # C binary format
+    if(dataset_path.split("/")[-1] == "total.tar"):
+        sentences, labels, test_sentences, test_labels = Load_IMDB_Data_and_Label(dataset_path, max_seq_len_cutoff)
+        x_text = sentences + test_sentences
+        y = np.concatenate([labels, test_labels], 0)
+    else:
+        dataset_file = open(dataset_path, "r")
+        dataset_content = dataset_file.readlines()
+
+        x_text = []
+        y = []
+        for element in dataset_content:
+            element = element.lower()
+            element = element.split("\t")
+            label = int(element[0])
+            text = element[1].strip()
+            if (len(text) == 0):
+                continue
+            x_text.append(text)
+            tmp_lable = np.zeros(n_class)
+            if(n_class == 2):
+                tmp_lable[label] = 1
+            else:
+                tmp_lable[label - 1] = 1
+            y.append(tmp_lable)
+
+        x_text = clean_str(x_text, max_seq_len_cutoff, is_decode=False)
+
+
+    sequence_length = max(len(x) for x in x_text)
+
+    vocabulary, vocabulary_inv = build_vocab(x_text)
+    y = np.asarray(y)
+
+    word2vec_Model = Load_Model(word2vec_model_path)
     word2vec_vocab = word2vec_Model.vocab
     word2vec_vec = word2vec_Model.syn0
-    #x, y = build_input_data_from_word2vec(sentences + test_sentences, np.concatenate([labels, test_labels], 0))
-    x = sentences + test_sentences
-    y = np.concatenate([labels, test_labels], 0)
-    return [x, y, sequence_length, vocabulary, vocabulary_inv, word2vec_vocab, word2vec_vec]
 
+
+    return [x_text, y, sequence_length, vocabulary, vocabulary_inv, word2vec_vocab, word2vec_vec]
 
 def batch_iter(data, batch_size, seq_length, emmbedding_size,word2vec_vocab, word2vec_vec, is_shuffle=True):
     """
