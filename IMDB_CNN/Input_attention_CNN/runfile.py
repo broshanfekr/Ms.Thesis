@@ -1,0 +1,2 @@
+import os
+os.system("python3 train.py -input_dataset_path input_data/rt_dataset.txt -word2vec_model_path word2vec_model/rt_skipgram_model -output_path attention_cnn.txt -num_epochs 30 -batch_size 100")
