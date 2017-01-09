@@ -24,7 +24,7 @@ def create_parser():
         help="Path of the dataset"
     )
     parser.add_argument(
-        '--word2vec_model_path', '-word2vec_model_path', type=str, default="word2vec_model/IMDB_skipgram_model",
+        '--word2vec_model_path', '-word2vec_model_path', type=str, default="word2vec_model/IMDB_skipgram_model/skipgram_model1",
         metavar='PATH',
         help="the path of trained word2vec model."
     )
