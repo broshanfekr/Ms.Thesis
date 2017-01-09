@@ -153,7 +153,9 @@ def build_input_data_from_word2vec(sentence, word2vec_vocab, word2vec_vec):
             word2vec_index = word2vec_vocab[word].index
             word_vector = word2vec_vec[word2vec_index]
         except:
-            word_vector = np.random.uniform(low=-0.25, high=0.25, size=word2vec_vec.shape[1])
+            word2vec_index = word2vec_vocab['<un_known>'].index
+            word_vector = word2vec_vec[word2vec_index]
+            #word_vector = np.random.uniform(low=-0.25, high=0.25, size=word2vec_vec.shape[1])
         X_data.append(word_vector)
     X_data = np.asarray(X_data)
     return X_data
@@ -201,6 +203,15 @@ def load_data(dataset_path, word2vec_model_path, n_class=2, max_seq_len_cutoff=1
     word2vec_Model = Load_Model(word2vec_model_path)
     word2vec_vocab = word2vec_Model.vocab
     word2vec_vec = word2vec_Model.syn0
+    
+    print("word2vec len is: ", len(word2vec_vec))
+    tmp = word2vec_vocab['real']
+    tmp1 = copy.deepcopy(tmp)
+    word_vector = np.random.uniform(low=-0.25, high=0.25, size=(1,word2vec_vec.shape[1]))
+    word2vec_vec = np.append(word2vec_vec, word_vector, axis=0)
+    tmp1.index = len(word2vec_vec)-1
+    word2vec_vocab['<un_known>'] = tmp1
+    
     return [x_text, y, doc_length, sent_length, word2vec_vocab, word2vec_vec]
 
 
