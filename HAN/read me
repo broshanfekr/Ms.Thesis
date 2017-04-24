@@ -1,3 +1,0 @@
-Insert all files with "total.tar" and "IMDB_skipgram_model" together in one directory, then run runfile.py or the command below in terminal
-
-python3 train_LSTM.py -input_dataset_path input_data/total.tar -word2vec_model_path word2vec_model/IMDB_skipgram_model -output_path han_result.txt -num_epochs 20 -batch_size 7
