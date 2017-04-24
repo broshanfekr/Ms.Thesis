@@ -1,2 +1,0 @@
-after placing data file (total.rar) in the same directory with LSTM.py and data_helpers.py and doc2vec.py, it's necessary to
-run doc2vec.py and LSTM.py respectively.
