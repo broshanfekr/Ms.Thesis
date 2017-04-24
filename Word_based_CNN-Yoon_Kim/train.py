@@ -205,10 +205,8 @@ def My_main():
                 os.makedirs(checkpoint_dir)
             saver = tf.train.Saver(tf.global_variables(), max_to_keep=50)
 
-            # Initialize all variables
-            sess.run(tf.initialize_all_variables())
-            # Initialize all variables
-            #sess.run(tf.global_variables_initializer())
+
+            sess.run(tf.global_variables_initializer())
 
 
             def train_step(x_batch, y_batch, epoch_num):
