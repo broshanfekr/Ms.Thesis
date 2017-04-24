@@ -71,7 +71,7 @@ class TextCNN(object):
 
 
         #usual cnn uses these two lines
-        self.h_pool = tf.concat(3, pooled_outputs)
+        self.h_pool = tf.concat(pooled_outputs, 3)
         self.h_pool_flat = tf.reshape(self.h_pool, [-1, num_filters_total])
         self.h_pool_flat = tf.tanh(self.h_pool_flat)
         #self.h_pool_flat = tf.nn.l2_normalize(self.h_pool_flat, dim=1)
@@ -129,11 +129,11 @@ class TextCNN(object):
 
                 doc_alfa = tf.reshape(doc_alfa, [-1, filter_seq_len, 1])
 
-                doc_alfa = tf.mul(doc_alfa, filter_seq_len)
+                doc_alfa = tf.scalar_mul(filter_seq_len, doc_alfa)
 
                 #tmp_scale = tf.constant(float(1.0 / filter_seq_len))
                 self.doc_alfa = doc_alfa
-                outputs = tf.mul(attention_h_pool, doc_alfa)           #+++++++++++++++++++++++++++++++++++
+                outputs = tf.multiply(attention_h_pool, doc_alfa)           #+++++++++++++++++++++++++++++++++++
 
 
                 attention_h_pool_flat = tf.reduce_max(outputs, reduction_indices=1)
@@ -143,7 +143,7 @@ class TextCNN(object):
 
 
         # attention cnn uses these three line
-        self.attention_h_pool_flat = tf.concat(1, filter_features)
+        self.attention_h_pool_flat = tf.concat(filter_features, 1)
         self.attention_h_pool_flat = tf.tanh(self.attention_h_pool_flat)
         #self.attention_h_pool_flat = tf.nn.l2_normalize(self.attention_h_pool_flat, dim=1)
 
@@ -169,7 +169,7 @@ class TextCNN(object):
 
         # CalculateMean cross-entropy loss
         with tf.name_scope("loss"):
-            losses = tf.nn.softmax_cross_entropy_with_logits(self.scores, self.input_y)
+            losses = tf.nn.softmax_cross_entropy_with_logits(logits=self.scores, labels=self.input_y)
             self.loss = tf.reduce_mean(losses) + l2_reg_lambda * l2_loss
             self.weigth_norm = l2_reg_lambda*l2_loss
 
@@ -194,7 +194,7 @@ class TextCNN(object):
 
         # CalculateMean cross-entropy loss
         with tf.name_scope("attention_loss"):
-            losses = tf.nn.softmax_cross_entropy_with_logits(self.attention_scores, self.input_y)
+            losses = tf.nn.softmax_cross_entropy_with_logits(logits=self.attention_scores, labels=self.input_y)
             self.attention_loss = tf.reduce_mean(losses) + l2_reg_lambda * attention_l2_loss
             self.attention_weigth_norm = l2_reg_lambda * attention_l2_loss
 
