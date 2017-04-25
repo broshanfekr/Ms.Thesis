@@ -212,7 +212,7 @@ def My_main():
                 print("pretrained model loaded from " + str(load_path))
                 destfile.write("pretrained model loaded from " + str(load_path) + "\n")
 
-                path = saver.save(sess, checkpoint_prefix, global_step=FLAGS.num_epochs)
+                #path = saver.save(sess, checkpoint_prefix, global_step=FLAGS.num_epochs)
 
 
             list_of_trainable_variables = sess.run(tf.trainable_variables())
